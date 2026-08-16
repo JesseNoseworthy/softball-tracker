@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sauron's Sluggers — 3-Pitch Scorebook</title>
+<meta name="description" content="Season stats, game log, insights and suggested lineup for Sauron's Sluggers.">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<style>
+  :root{--ink:#2438A6;--inkd:#17226B;--paper:#fff;--grid:#E3E7F2;--red:#B23A2E;--green:#2E7D46;--mute:#8A93AE;
+    color-scheme:light;}
+  *{box-sizing:border-box}
+  html{min-height:100%;background:#fff !important;color:var(--inkd);}
+  body{margin:0;background:#fff !important;color:var(--inkd);padding-bottom:70px;
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    -webkit-text-size-adjust:100%;forced-color-adjust:none;}
+  main{background:#fff}
+  header{border-bottom:3px solid var(--ink);background:#fff;padding:16px 16px 10px;position:sticky;top:0;z-index:9}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{margin:0;font-size:clamp(24px,6vw,40px);color:var(--ink);text-transform:uppercase;letter-spacing:.5px;font-weight:800;line-height:1.05}
+  h1 small{display:block;color:var(--inkd);font-size:.42em;font-weight:600;letter-spacing:1px;margin-top:3px}
+  h2{font-size:22px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px}
+  h3{font-size:16px;margin:0;text-transform:uppercase;letter-spacing:.5px;color:var(--ink)}
+  .rec{font-family:ui-monospace,Menlo,monospace;font-size:14px;margin-top:6px}
+  .w{color:var(--green);font-weight:700}.l{color:var(--red);font-weight:700}
+  nav{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  nav button{border:2px solid var(--ink);background:transparent;color:var(--ink);padding:5px 14px;
+    font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;font-family:inherit}
+  nav button.on{background:var(--ink);color:var(--paper)}
+  main{max-width:860px;margin:0 auto;padding:18px 14px;background:#fff}
+  .card{background:#fff;border:2px solid var(--ink);box-shadow:4px 4px 0 var(--grid);margin-bottom:14px}
+  .card.p{padding:14px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--ink);border-bottom:2px solid var(--ink);
+     padding:9px 8px;text-align:right;white-space:nowrap;cursor:pointer;user-select:none}
+  th.l,td.l{text-align:left}
+  td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--grid);font-family:ui-monospace,Menlo,monospace}
+  td.l{font-family:inherit;font-weight:600;white-space:nowrap}
+  tbody tr{cursor:pointer}
+  .ba{font-weight:700;font-size:15px;color:var(--ink)}
+  .scroll{overflow-x:auto}
+  .note{font-size:12px;color:var(--mute);margin:6px 0 14px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:8px 0;border-bottom:1px solid var(--grid);font-size:14px}
+  .row:last-child{border-bottom:none}
+  .mono{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+  .gm{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px}
+  .res{font-size:20px;font-weight:800;margin-right:8px}
+  .lu{display:grid;grid-template-columns:32px 1fr auto;gap:8px;padding:10px 12px;border-bottom:1px solid var(--grid);align-items:baseline;cursor:pointer}
+  .lu:last-child{border-bottom:none}
+  .lu .n{font-size:19px;font-weight:800;color:var(--ink)}
+  .lu.f{background:rgba(36,56,166,.07)}
+  .bar{height:6px;background:var(--grid);margin-top:4px}
+  .bar i{display:block;height:100%;background:var(--ink)}
+  .back{background:none;border:none;color:var(--ink);font-weight:600;font-size:14px;padding:0;cursor:pointer;margin-bottom:10px;font-family:inherit}
+  .toggle{font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer}
+  .head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+  .dim{color:var(--mute)}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px}
+  .pdrow{display:grid;grid-template-columns:96px 1fr auto;gap:10px;padding:9px 12px;border-bottom:1px solid var(--grid);align-items:center}
+  @media(max-width:600px){.pdrow{grid-template-columns:80px 1fr}.pdrow .s{grid-column:2/-1;text-align:left}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>Sauron's Sluggers<small>3-Pitch Scorebook</small></h1>
+  <div class="rec" id="rec"></div>
+  <nav id="nav"></nav>
+</div></header>
+<main id="main"></main>
+
+<script>
+/* ==================================================================
+   SAURON'S SLUGGERS — 3-PITCH SCOREBOOK
+   Zero dependencies. Single file. Works offline and on any host.
+
+   TO ADD A GAME: copy an entry in GAMES below, change the date,
+   opponent, scores and each player's line. Omit a player entirely
+   if they weren't on the card that night.
+   Decoder: X = out · traced diamond = hit · filled = run · slash = inning over
+   ================================================================== */
+
+var ROSTER = [
+  {name:"Sergio",  sex:"M", speed:3},
+  {name:"Olivia",  sex:"F", speed:3},
+  {name:"Jesse",   sex:"M", speed:3},
+  {name:"Tom",     sex:"M", speed:5},
+  {name:"Brady",   sex:"M", speed:4},
+  {name:"Meg",     sex:"F", speed:3},
+  {name:"Trevor",  sex:"M", speed:4},
+  {name:"John",    sex:"M", speed:3},
+  {name:"Mallory", sex:"F", speed:1},
+  {name:"Patrick", sex:"M", speed:3},
+  {name:"Carly",   sex:"F", speed:1},
+  {name:"Lukas",   sex:"M", speed:3},
+  {name:"Nate",    sex:"M", speed:3},
+  {name:"Mel",     sex:"F", speed:3},
+  {name:"Alex",    sex:"M", speed:3},
+  {name:"Shae",    sex:"F", speed:3},
+  {name:"Rosemary",sex:"F", speed:3}
+];
+
+var GAMES = [
+  { date:"2026-07-05", opponent:"Unknown", teamRuns:13, oppRuns:23, lines:{
+      Sergio:{ab:5,h:1,r:1}, Olivia:{ab:5,h:0,r:0}, Jesse:{ab:4,h:3,r:3},
+      Tom:{ab:4,h:4,r:3},    Brady:{ab:4,h:2,r:1},  Meg:{ab:4,h:1,r:1},
+      Trevor:{ab:4,h:2,r:2}, John:{ab:3,h:2,r:1},   Mallory:{ab:3,h:0,r:0},
+      Patrick:{ab:3,h:2,r:1},Carly:{ab:3,h:1,r:0} } },
+
+  { date:"2026-07-12", opponent:"Batstreet's Back", teamRuns:14, oppRuns:12, lines:{
+      Brady:{ab:3,h:3,r:2},  Jesse:{ab:4,h:3,r:2},  Carly:{ab:3,h:0,r:0},
+      Trevor:{ab:3,h:2,r:1}, Meg:{ab:3,h:1,r:1},    Tom:{ab:3,h:3,r:3},
+      Mallory:{ab:3,h:2,r:1},Lukas:{ab:3,h:2,r:1},  Sergio:{ab:3,h:1,r:1},
+      Olivia:{ab:3,h:1,r:1}, Nate:{ab:3,h:1,r:1},   Mel:{ab:3,h:0,r:0} } },
+
+  { date:"2026-07-19", opponent:"Unknown", teamRuns:12, oppRuns:13, lines:{
+      Olivia:{ab:4,h:3,r:2},  Trevor:{ab:4,h:3,r:2},  Sergio:{ab:3,h:1,r:1},
+      Meg:{ab:5,h:3,r:2},     Mallory:{ab:5,h:3,r:1}, Alex:{ab:4,h:2,r:1},
+      Shae:{ab:5,h:2,r:1},    Tom:{ab:5,h:3,r:2},     Carly:{ab:4,h:1,r:0},
+      Rosemary:{ab:3,h:0,r:0} } }
+];
+
+/* ---------- helpers ---------- */
+function avg(h,ab){ if(!ab) return "—"; var a=h/ab; return a>=1?"1.000":a.toFixed(3).replace(/^0/,""); }
+function pctOf(n,d){ return d?Math.round(n/d*100):0; }
+function fmtDate(iso){ var p=iso.split("-"); return new Date(+p[0],+p[1]-1,+p[2])
+  .toLocaleDateString("en-CA",{month:"short",day:"numeric"}); }
+function resultOf(g){ return g.teamRuns>g.oppRuns?"W":g.teamRuns<g.oppRuns?"L":"T"; }
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function diamonds(h,ab){
+  if(!ab) return '<span class="dim">·</span>';
+  var out="",n=Math.min(ab,12);
+  for(var i=0;i<n;i++) out += i<h ? '<span style="color:var(--ink)">◆</span>'
+                                  : '<span style="color:#B9C2DA">◇</span>';
+  if(ab>12) out += '<span class="dim" style="font-size:11px">+'+(ab-12)+'</span>';
+  return '<span style="letter-spacing:2px">'+out+'</span>';
+}
+
+/* ---------- season maths ---------- */
+function season(){
+  var chrono = GAMES.slice().sort(function(a,b){ return a.date<b.date?-1:1; });
+  var gp = chrono.length, minAB = 2*Math.max(gp,1);
+  var team = {ab:0,h:0,r:0};
+  chrono.forEach(function(g){ for(var k in g.lines){ var l=g.lines[k];
+    team.ab+=l.ab; team.h+=l.h; team.r+=l.r; } });
+
+  var players = ROSTER.map(function(p){
+    var ab=0,h=0,r=0,gpP=0,multi=0,streak=0,alive=true,recent=[];
+    chrono.slice().reverse().forEach(function(g){
+      var l=g.lines[p.name]; if(!l) return;
+      if(alive){ if(l.h>0) streak++; else alive=false; }
+      if(recent.length<3) recent.push(l);
+    });
+    chrono.forEach(function(g){
+      var l=g.lines[p.name]; if(!l) return;
+      ab+=l.ab; h+=l.h; r+=l.r; gpP++; if(l.h>=2) multi++;
+    });
+    var rAB=0,rH=0; recent.forEach(function(l){ rAB+=l.ab; rH+=l.h; });
+    var sAvg=(h+2)/(ab+4), sConv=(r+1)/(h+2);
+    return {name:p.name, sex:p.sex, speed:p.speed, ab:ab, h:h, r:r, gp:gpP,
+      avg: ab?h/ab:null, streak:streak, multi:multi,
+      conv: h?r/h:null, roll: rAB?rH/rAB:null,
+      rating: 0.65*sAvg + 0.20*(p.speed/5) + 0.15*sConv,
+      hitShare: pctOf(h,team.h), runShare: pctOf(r,team.r)};
+  });
+  return {chrono:chrono, gp:gp, minAB:minAB, team:team, players:players};
+}
+
+/* ---------- lineup builder: max 3 men in a row, wrap included ---------- */
+function lineup(players){
+  var men = players.filter(function(p){return p.sex==="M";}).sort(function(a,b){return b.rating-a.rating;});
+  var women = players.filter(function(p){return p.sex!=="M";}).sort(function(a,b){return b.rating-a.rating;});
+  var legal = women.length ? men.length <= 3*women.length : men.length<=3;
+  if(!women.length) return {order:men, legal:legal};
+  var base=Math.floor(men.length/women.length), extra=men.length%women.length, order=[], mi=0;
+  women.forEach(function(f,gi){
+    var take=Math.min(base+(gi<extra?1:0),3);
+    for(var k=0;k<take && mi<men.length;k++) order.push(men[mi++]);
+    order.push(f);
+  });
+  while(mi<men.length) order.push(men[mi++]);
+  return {order:order, legal:legal};
+}
+
+/* ---------- state + render ---------- */
+var S = season();
+var view = {tab:"season", player:null, sortKey:"avg", sortDir:-1, qualified:true};
+var TABS = [["season","Season"],["games","Games"],["insights","Insights"],["lineup","Lineup"]];
+
+function renderHeader(){
+  var rec={W:0,L:0,T:0}; GAMES.forEach(function(g){ rec[resultOf(g)]++; });
+  document.getElementById("rec").innerHTML =
+    '<span class="w">'+rec.W+'W</span> – <span class="l">'+rec.L+'L</span>'+(rec.T?' – '+rec.T+'T':'');
+  document.getElementById("nav").innerHTML = TABS.map(function(t){
+    return '<button data-tab="'+t[0]+'" class="'+(view.tab===t[0]&&!view.player?"on":"")+'">'+t[1]+'</button>';
+  }).join("");
+}
+
+function seasonTable(){
+  var rows = S.players.filter(function(p){ return view.qualified ? p.ab>=S.minAB : true; });
+  rows.sort(function(a,b){
+    if(view.sortKey==="name") return a.name.localeCompare(b.name)*view.sortDir;
+    var va=a[view.sortKey]==null?-1:a[view.sortKey], vb=b[view.sortKey]==null?-1:b[view.sortKey];
+    return (va-vb)*view.sortDir || b.h-a.h;
+  });
+  var hidden = S.players.length - rows.length;
+  function arrow(k){ return view.sortKey===k ? (view.sortDir===-1?" ▾":" ▴") : ""; }
+  var form = function(p){
+    if(p.roll==null||p.avg==null||p.gp<4) return "";
+    if(p.roll-p.avg>=.1) return ' <span style="color:var(--green)">▲</span>';
+    if(p.avg-p.roll>=.1) return ' <span style="color:var(--red)">▼</span>';
+    return "";
+  };
+  return '<div class="head"><h2>Season stats</h2>'+
+    '<label class="toggle"><input type="checkbox" id="qual"'+(view.qualified?" checked":"")+
+    '> Qualified only (≥ '+S.minAB+' PA)</label></div>'+
+    '<div class="card scroll"><table><thead><tr>'+
+      '<th style="cursor:default">#</th>'+
+      '<th class="l" data-sort="name">Player'+arrow("name")+'</th>'+
+      '<th data-sort="avg">BA'+arrow("avg")+'</th>'+
+      '<th data-sort="ab">PA'+arrow("ab")+'</th>'+
+      '<th data-sort="h">H'+arrow("h")+'</th>'+
+      '<th data-sort="r">R'+arrow("r")+'</th>'+
+      '<th data-sort="gp">GP'+arrow("gp")+'</th>'+
+    '</tr></thead><tbody>'+
+    rows.map(function(p,i){
+      return '<tr data-player="'+esc(p.name)+'">'+
+        '<td class="dim">'+(i+1)+'</td>'+
+        '<td class="l">'+esc(p.name)+form(p)+'</td>'+
+        '<td class="ba">'+avg(p.h,p.ab)+'</td>'+
+        '<td>'+p.ab+'</td><td>'+p.h+'</td><td>'+p.r+'</td><td>'+p.gp+'</td>'+
+        '</tr>';
+    }).join("")+
+    '</tbody></table></div>'+
+    (view.qualified&&hidden ? '<p class="note">'+hidden+' player'+(hidden>1?"s":"")+
+      ' below the PA cutoff — untick to show everyone.</p>' : '')+
+    '<p class="note">PA = AB (no walks in 3-pitch). Tap a column to sort, a row for the game log.</p>';
+}
+
+function gamesView(){
+  return '<h2>Game log</h2><div class="note">Newest first.</div>'+
+    S.chrono.slice().reverse().map(function(g){
+      var res=resultOf(g), col=res==="W"?"var(--green)":res==="L"?"var(--red)":"#8A6D1F";
+      var hT=0, abT=0; for(var k in g.lines){ hT+=g.lines[k].h; abT+=g.lines[k].ab; }
+      return '<div class="card gm"><span><span class="res" style="color:'+col+'">'+res+'</span>'+
+        '<strong>vs '+esc(g.opponent)+'</strong> <span class="dim">'+fmtDate(g.date)+'</span></span>'+
+        '<span class="mono">'+g.teamRuns+'–'+g.oppRuns+
+        ' <span class="dim">team '+avg(hT,abT)+' · '+(hT?(g.teamRuns/hT).toFixed(2):"—")+' R/H</span></span></div>';
+    }).join("");
+}
+
+function playerView(name){
+  var ab=0,h=0,r=0, rows=S.chrono.slice().reverse().map(function(g){
+    var l=g.lines[name]; if(l){ab+=l.ab;h+=l.h;r+=l.r;}
+    return '<div class="pdrow"><span class="mono">'+fmtDate(g.date)+'</span>'+
+      (l ? '<span>'+diamonds(l.h,l.ab)+'</span><span class="mono s" style="text-align:right">'+
+            l.h+'/'+l.ab+' · '+avg(l.h,l.ab)+' · '+l.r+' R</span>'
+         : '<span class="dim" style="grid-column:2/-1;font-style:italic">Not on the lineup card — no data</span>')+
+      '</div>';
+  }).join("");
+  return '<button class="back" id="back">← Back</button>'+
+    '<h2 style="font-size:30px">'+esc(name)+'</h2>'+
+    '<div class="mono" style="font-size:22px;color:var(--ink)">'+avg(h,ab)+
+    ' <span class="dim" style="font-size:13px">'+h+' H / '+ab+' PA · '+r+' R</span></div>'+
+    '<div class="card" style="margin-top:10px">'+rows+'</div>';
+}
+
+function insightsView(){
+  var act=S.players.filter(function(p){return p.gp>0;});
+  var conv=act.filter(function(p){return p.h>0;}).sort(function(a,b){return b.conv-a.conv;});
+  var stk=act.slice().sort(function(a,b){return b.streak-a.streak||b.multi-a.multi;});
+  var shr=act.slice().sort(function(a,b){return b.hitShare-a.hitShare;});
+  var max=Math.max.apply(null,shr.map(function(p){return p.hitShare;}).concat([1]));
+  function box(title,note,inner){ return '<div class="card p"><h3>'+title+'</h3><p class="note">'+note+'</p>'+inner+'</div>'; }
+  return '<h2>Insights</h2><p class="note">'+S.gp+' game'+(S.gp===1?"":"s")+
+    ' in the book — treat these as fun facts until mid-season.</p><div class="grid2">'+
+    box("Run conversion","Runs per time on base. Partly a lineup stat — high converters have hitters behind them.",
+      conv.map(function(p){ return '<div class="row" data-player="'+esc(p.name)+'"><strong>'+esc(p.name)+
+      '</strong><span class="mono">'+p.r+'/'+p.h+' · '+Math.round(p.conv*100)+'%</span></div>';}).join(""))+
+    box("Streaks &amp; multi-hit","Consecutive games with a hit (missed games don't break it) · games with 2+ hits.",
+      stk.map(function(p){ return '<div class="row" data-player="'+esc(p.name)+'"><strong>'+esc(p.name)+
+      (p.streak>=3?' <span style="color:var(--green)">🔥'+p.streak+'</span>':'')+
+      '</strong><span class="mono">streak '+p.streak+' · multi '+p.multi+'</span></div>';}).join(""))+
+    box("Share of team hits","Who's carrying the offence — "+S.team.h+" team hits, "+S.team.r+" runs.",
+      shr.map(function(p){ return '<div class="row" style="display:block" data-player="'+esc(p.name)+'">'+
+      '<span style="display:flex;justify-content:space-between"><strong>'+esc(p.name)+'</strong>'+
+      '<span class="mono">'+p.hitShare+'% H · '+p.runShare+'% R</span></span>'+
+      '<span class="bar"><i style="width:'+(p.hitShare/max*100)+'%"></i></span></div>';}).join(""))+
+    box("Team efficiency","Runs per hit, by game. Higher = stringing hits together instead of stranding runners.",
+      S.chrono.slice().reverse().map(function(g){ var hT=0; for(var k in g.lines) hT+=g.lines[k].h;
+      return '<div class="row"><span>'+fmtDate(g.date)+' <span class="dim">vs '+esc(g.opponent)+
+      '</span></span><span class="mono">'+g.teamRuns+'R / '+hT+'H = '+(hT?(g.teamRuns/hT).toFixed(2):"—")+
+      '</span></div>';}).join(""))+
+    '</div>';
+}
+
+function lineupView(){
+  var L=lineup(S.players);
+  var men=S.players.filter(function(p){return p.sex==="M";}).length;
+  return '<h2>Suggested lineup</h2>'+
+    '<p class="note">Rating = 65% batting (AVG shrunk toward .500) + 20% speed + 15% run conversion. '+
+    'Women spaced so no more than three men bat back-to-back, including the wrap from #'+L.order.length+' to #1.</p>'+
+    (L.legal?"":'<p class="note" style="color:var(--red);font-weight:600">Roster can\'t satisfy the rule ('+
+      men+' men, '+(S.players.length-men)+' women) — best effort below.</p>')+
+    '<div class="card">'+L.order.map(function(p,i){
+      return '<div class="lu'+(p.sex!=="M"?" f":"")+'" data-player="'+esc(p.name)+'">'+
+        '<span class="n">'+(i+1)+'</span>'+
+        '<span><strong>'+esc(p.name)+'</strong> <span class="dim mono">'+(p.sex==="M"?"M":"W")+
+        ' · speed '+p.speed+'</span></span>'+
+        '<span class="mono">'+avg(p.h,p.ab)+'</span></div>';
+    }).join("")+'</div>'+
+    '<p class="note">Suggestion only — you\'re the manager. Shaded rows are the women anchoring each group.</p>';
+}
+
+function render(){
+  renderHeader();
+  var m=document.getElementById("main");
+  if(view.player) m.innerHTML = playerView(view.player);
+  else if(view.tab==="season") m.innerHTML = seasonTable();
+  else if(view.tab==="games") m.innerHTML = gamesView();
+  else if(view.tab==="insights") m.innerHTML = insightsView();
+  else m.innerHTML = lineupView();
+  window.scrollTo(0,0);
+}
+
+/* ---------- events (delegated, so re-renders never break them) ---------- */
+document.addEventListener("click", function(e){
+  var t = e.target.closest ? e.target.closest("[data-tab],[data-sort],[data-player],#back") : null;
+  if(!t) return;
+  if(t.id==="back"){ view.player=null; render(); return; }
+  if(t.hasAttribute("data-tab")){ view.tab=t.getAttribute("data-tab"); view.player=null; render(); return; }
+  if(t.hasAttribute("data-sort")){
+    var k=t.getAttribute("data-sort");
+    if(view.sortKey===k) view.sortDir=-view.sortDir;
+    else { view.sortKey=k; view.sortDir = k==="name"?1:-1; }
+    render(); return;
+  }
+  if(t.hasAttribute("data-player")){ view.player=t.getAttribute("data-player"); render(); }
+});
+document.addEventListener("change", function(e){
+  if(e.target && e.target.id==="qual"){ view.qualified=e.target.checked; render(); }
+});
+
+render();
+</script>
+</body>
+</html>
