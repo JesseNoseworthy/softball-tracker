@@ -198,7 +198,7 @@ function lineup(players){
 
 /* ---------- state + render ---------- */
 var S = season();
-var view = {tab:"season", player:null, sortKey:"avg", sortDir:-1, qualified:true};
+var view = {tab:"season", player:null, game:null, sortKey:"avg", sortDir:-1, qualified:true};
 var TABS = [["season","Season"],["games","Games"],["insights","Insights"],["lineup","Lineup"]];
 
 function renderHeader(){
@@ -252,15 +252,50 @@ function seasonTable(){
 }
 
 function gamesView(){
-  return '<h2>Game log</h2><div class="note">Newest first.</div>'+
-    S.chrono.slice().reverse().map(function(g){
+  return '<h2>Game log</h2><div class="note">Newest first — tap a game for the box score.</div>'+
+    S.chrono.slice().reverse().map(function(g,i){
       var res=resultOf(g), col=res==="W"?"var(--green)":res==="L"?"var(--red)":"#8A6D1F";
       var hT=0, abT=0; for(var k in g.lines){ hT+=g.lines[k].h; abT+=g.lines[k].ab; }
-      return '<div class="card gm"><span><span class="res" style="color:'+col+'">'+res+'</span>'+
+      return '<div class="card gm" data-game="'+g.date+'" style="cursor:pointer"><span><span class="res" style="color:'+col+'">'+res+'</span>'+
         '<strong>vs '+esc(g.opponent)+'</strong> <span class="dim">'+fmtDate(g.date)+'</span></span>'+
         '<span class="mono">'+g.teamRuns+'–'+g.oppRuns+
         ' <span class="dim">team '+avg(hT,abT)+' · '+(hT?(g.teamRuns/hT).toFixed(2):"—")+' R/H</span></span></div>';
     }).join("");
+}
+
+function gameView(date){
+  var g=null; S.chrono.forEach(function(x){ if(x.date===date) g=x; });
+  if(!g) return '<button class="back" id="back">← Back</button><p>Game not found.</p>';
+  var res=resultOf(g), col=res==="W"?"var(--green)":res==="L"?"var(--red)":"#8A6D1F";
+  var rows=[], hT=0, abT=0, rT=0;
+  for(var name in g.lines){
+    var l=g.lines[name];
+    hT+=l.h; abT+=l.ab; rT+=l.r;
+    rows.push({name:name, ab:l.ab, h:l.h, r:l.r});
+  }
+  rows.sort(function(a,b){ return (b.h/b.ab||0)-(a.h/a.ab||0) || b.h-a.h; });
+  var missing = ROSTER.filter(function(p){ return !g.lines[p.name]; })
+                      .map(function(p){ return p.name; });
+  return '<button class="back" id="back">← Back to games</button>'+
+    '<h2><span style="color:'+col+'">'+res+'</span> vs '+esc(g.opponent)+'</h2>'+
+    '<div class="mono" style="font-size:20px;color:var(--ink)">'+g.teamRuns+'–'+g.oppRuns+
+    ' <span class="dim" style="font-size:13px">'+fmtDate(g.date)+' · team '+avg(hT,abT)+
+    ' · '+(hT?(g.teamRuns/hT).toFixed(2):"—")+' runs per hit</span></div>'+
+    '<div class="card scroll" style="margin-top:10px"><table><thead><tr>'+
+      '<th class="l" style="cursor:default">Player</th><th style="cursor:default">BA</th>'+
+      '<th style="cursor:default">PA</th><th style="cursor:default">H</th>'+
+      '<th style="cursor:default">R</th><th style="cursor:default">Card</th>'+
+    '</tr></thead><tbody>'+
+    rows.map(function(p){
+      return '<tr data-player="'+esc(p.name)+'"><td class="l">'+esc(p.name)+'</td>'+
+        '<td class="ba">'+avg(p.h,p.ab)+'</td><td>'+p.ab+'</td><td>'+p.h+'</td><td>'+p.r+'</td>'+
+        '<td style="white-space:nowrap">'+diamonds(p.h,p.ab)+'</td></tr>';
+    }).join("")+
+    '<tr style="border-top:2px solid var(--ink)"><td class="l"><strong>Team</strong></td>'+
+      '<td class="ba">'+avg(hT,abT)+'</td><td>'+abT+'</td><td>'+hT+'</td><td>'+rT+'</td><td></td></tr>'+
+    '</tbody></table></div>'+
+    (missing.length ? '<p class="note">Not on the card: '+missing.map(esc).join(", ")+'</p>' : '')+
+    '<p class="note">◆ hit · ◇ out. Tap a player for their season log.</p>';
 }
 
 function playerView(name){
@@ -330,6 +365,7 @@ function render(){
   renderHeader();
   var m=document.getElementById("main");
   if(view.player) m.innerHTML = playerView(view.player);
+  else if(view.game) m.innerHTML = gameView(view.game);
   else if(view.tab==="season") m.innerHTML = seasonTable();
   else if(view.tab==="games") m.innerHTML = gamesView();
   else if(view.tab==="insights") m.innerHTML = insightsView();
@@ -339,17 +375,22 @@ function render(){
 
 /* ---------- events (delegated, so re-renders never break them) ---------- */
 document.addEventListener("click", function(e){
-  var t = e.target.closest ? e.target.closest("[data-tab],[data-sort],[data-player],#back") : null;
+  var t = e.target.closest ? e.target.closest("[data-tab],[data-sort],[data-player],[data-game],#back") : null;
   if(!t) return;
-  if(t.id==="back"){ view.player=null; render(); return; }
-  if(t.hasAttribute("data-tab")){ view.tab=t.getAttribute("data-tab"); view.player=null; render(); return; }
+  if(t.id==="back"){
+    if(view.player && view.game){ view.player=null; }   /* back to the box score */
+    else { view.player=null; view.game=null; }
+    render(); return;
+  }
+  if(t.hasAttribute("data-tab")){ view.tab=t.getAttribute("data-tab"); view.player=null; view.game=null; render(); return; }
   if(t.hasAttribute("data-sort")){
     var k=t.getAttribute("data-sort");
     if(view.sortKey===k) view.sortDir=-view.sortDir;
     else { view.sortKey=k; view.sortDir = k==="name"?1:-1; }
     render(); return;
   }
-  if(t.hasAttribute("data-player")){ view.player=t.getAttribute("data-player"); render(); }
+  if(t.hasAttribute("data-player")){ view.player=t.getAttribute("data-player"); render(); return; }
+  if(t.hasAttribute("data-game")){ view.game=t.getAttribute("data-game"); view.player=null; render(); }
 });
 document.addEventListener("change", function(e){
   if(e.target && e.target.id==="qual"){ view.qualified=e.target.checked; render(); }
